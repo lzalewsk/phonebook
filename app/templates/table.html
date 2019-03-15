@@ -1,0 +1,35 @@
+{% extends "layout.html" %}
+{% block headblock %}
+    <style>
+    table, th, td {
+      border: 1px solid black;
+      border-collapse: collapse;
+    }
+    th, td {
+      padding: 5px;
+      text-align: left;
+    }
+    </style>
+{% endblock %}
+{% block content %}
+    <div>
+    <table>
+      <tr>
+          <th>ID</th>
+          <th>Name</th>
+          <th>Telephone</th>
+          <th>Email</th>
+          <th>Comments</th>
+      </tr>
+        {% for c in contacts %}
+        <tr>
+            <td>{{ c.id }}</td>
+            <td>{{ c.username }}</td>
+            <td>{{ c.phone }}</td>
+            <td>{{ c.email }}</td>
+            <td>{{ c.comment }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+    </div>
+{% endblock %}

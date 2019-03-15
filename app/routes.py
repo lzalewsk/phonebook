@@ -6,59 +6,8 @@ from app import app, db
 @app.route('/')
 @app.route('/index')
 def index():
-    user = {'username': 'Luka'}
-
-    return render_template('index.html', title='Home', user=user)
-
-@app.route('/api/v1/contacts', methods=['POST'])
-def api_post_contact():
-    """
-    API for contact
-    Input JSON stucture:
-    {
-        username: <string>
-        phone: <string>
-        email: <string>
-        comment: <string>
-    }
-    return: JSON response date from database
-    """
-    response = {}
-    if not request.content_type == 'application/json':
-        response['status'] = 'BAD_REQUEST'
-        return jsonify(response), 400
-
-    # get, parse and validate request content
-    # simple example
-    # print request.content_type
-    jo = request.get_json()
-    cont_fields = ['username','phone','email','comment']
-    content = {}
-    for field in cont_fields:
-        content[field] = None
-        if jo.has_key(field):
-            content[field] = jo[field]
-
-    # TODO: dodać obsługę złożonego JSONa z kilku wpisów
-    try:
-        contact = Contact(
-            username = content['username'],
-            phone = content['phone'],
-            email = content['email'],
-            comment = content['comment']
-        )
-        db.session.add(contact)
-        db.session.commit()
-        response['contact_id'] = contact.id
-        db.session.close()
-    except Exception as e:
-        print 'ZONG', e
-        response['status'] = 'ERROR'
-        response['error'] = e.message
-        return jsonify(response), 502
-
-    response['status'] = 'OK'
-    return jsonify(response)
+    contacts = Contact.query.order_by(Contact.id).all()
+    return render_template('table.html', title='Home', contacts=contacts)
 
 @app.route('/api/v1/contacts', methods=['GET'])
 def api_get_all_contact():
@@ -90,7 +39,7 @@ def api_get_all_contact():
         response = {}
         response['status'] = 'ERROR'
         response['error'] = e.message
-        return jsonify(response), 502
+        return jsonify(response), 500
 
     return jsonify(response)
 
@@ -121,38 +70,155 @@ def api_get_contact(id):
         response = {}
         response['status'] = 'ERROR'
         response['error'] = e.message
-        return jsonify(response), 502
+        return jsonify(response), 500
 
+    return jsonify(response)
+
+@app.route('/api/v1/contacts', methods=['POST'])
+def api_post_contact():
+    """
+    API for contact
+    Input JSON stucture:
+    {
+        username: <string>
+        phone: <string>
+        email: <string>
+        comment: <string>
+    }
+    return: JSON response date from database
+    """
+    response = {}
+    if not request.content_type == 'application/json':
+        response['status'] = 'BAD_REQUEST'
+        return jsonify(response), 400
+
+    # get, parse and validate request content
+    # simple example
+    # print request.content_type
+    jo = request.get_json()
+
+    # check and transforme json object to set of objects
+    if type(jo) is dict:
+        jdata = []
+        jdata.append(jo)
+    else:
+        jdata = jo
+
+    print jdata
+
+    response['contact_id'] = []
+
+    for jelement in jdata:
+        cont_fields = ['username','phone','email','comment']
+        content = {}
+        for field in cont_fields:
+            content[field] = None
+            if jelement.has_key(field):
+                content[field] = jelement[field]
+
+        try:
+            contact = Contact(
+                username = content['username'],
+                phone = content['phone'],
+                email = content['email'],
+                comment = content['comment']
+            )
+            db.session.add(contact)
+            db.session.commit()
+            if len(jdata) < 2:
+                response['contact_id'] = contact.id
+            else:
+                response['contact_id'].append(contact.id)
+            # db.session.close()
+        except Exception as e:
+            response = {}
+            response['status'] = 'ERROR'
+            response['error'] = e.message
+            return jsonify(response), 500
+
+    response['status'] = 'OK'
     return jsonify(response)
 
 @app.route('/api/v1/contacts/<int:id>', methods=['PATCH'])
 def api_patch_contact(id):
     """
     API for contact
-    method: GET
-    return: JSON with all data of contact with <id>
+    method: PATCH
+    return: status of operation
     """
     response = {}
+    if not request.content_type == 'application/json':
+        response['status'] = 'BAD_REQUEST'
+        return jsonify(response), 400
+
+    jdata = request.get_json()
 
     try:
-        # User.query.filter(User.email.endswith('@example.com')).all()
         contact = Contact.query.get(id)
 
-        _cnt = {}
-        _cnt['id'] = contact.id
-        _cnt['username'] = contact.username
-        _cnt['phone'] = contact.phone
-        _cnt['emial'] = contact.email
-        _cnt['comment'] = contact.comment
+        cont_fields = ['username', 'phone', 'email', 'comment']
+        for field in cont_fields:
+            if jdata.has_key(field):
+                setattr(contact, field, jdata[field])
 
         response['status'] = 'OK'
-        response['contact'] = _cnt
+        db.session.commit()
     except Exception as e:
         # print e
         response = {}
         response['status'] = 'ERROR'
         response['error'] = e.message
-        return jsonify(response), 502
+        return jsonify(response), 400
+
+    return jsonify(response)
+
+@app.route('/api/v1/contacts/<int:id>', methods=['PUT'])
+def api_put_contact(id):
+    """
+    API for contact
+    method: PUT (update or insert with selected <id>)
+    return: status of operation
+    """
+    response = {}
+    if not request.content_type == 'application/json':
+        response['status'] = 'BAD_REQUEST'
+        return jsonify(response), 400
+
+    jdata = request.get_json()
+    cont_fields = ['username', 'phone', 'email', 'comment']
+
+    try:
+        contact = Contact.query.get(id)
+        if contact is None:
+            content = {}
+            for field in cont_fields:
+                content[field] = None
+                if jdata.has_key(field):
+                    content[field] = jdata[field]
+
+            contact = Contact(
+                username=content['username'],
+                phone=content['phone'],
+                email=content['email'],
+                comment=content['comment']
+            )
+            contact.id = id
+            db.session.add(contact)
+            db.session.commit()
+            response['status'] = 'OK (NEW)'
+            # response['contact_id'] = contact.id
+        else:
+            for field in cont_fields:
+                if jdata.has_key(field):
+                    setattr(contact, field, jdata[field])
+            db.session.commit()
+            response['status'] = 'OK (UPDATED)'
+    except Exception as e:
+        # print e
+        response = {}
+        response['status'] = 'ERROR'
+        response['error'] = e.message
+        return jsonify(response), 400
 
     return jsonify(response)
 
@@ -170,13 +236,13 @@ def api_delete_contact(id):
         contact = Contact.query.get(id)
         db.session.delete(contact)
         db.session.commit()
-        db.session.close()
+        # db.session.close()
         response['status'] = 'OK'
     except Exception as e:
         # print e
         response = {}
         response['status'] = 'ERROR'
         response['error'] = e.message
-        return jsonify(response), 502
+        return jsonify(response), 500
 
     return jsonify(response)
