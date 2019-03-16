@@ -1,16 +1,8 @@
-# Builds a Docker image to run docker-uwsgi-odis.  The base image will handle
-# adding any application files and required dependencies to this image.
-#
-FROM debian:jessie
+FROM python:2.7-alpine
 MAINTAINER Lukasz Zalewski <lzalewsk@gmail.com>
 
 # Get and install required packages.
-RUN apt-get update && apt-get install -y -q \
-    build-essential \
-    python-dev \
-    python-pip \
-    libpq-dev \
- && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache build-base linux-headers pcre-dev
 
 # Install required dependencies (includes Flask and uWSGI)
 COPY requirements.txt /tmp/

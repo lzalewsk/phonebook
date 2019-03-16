@@ -20,7 +20,7 @@ def check_auth(username, password):
         _user = environ.get('PHONEBOOK_USER')
 
     if environ.get('PHONEBOOK_PASS') is not None:
-        _pass = environ.get('PHONEBOOK_USER')
+        _pass = environ.get('PHONEBOOK_PASS')
 
     return username == _user and password == _pass
 
