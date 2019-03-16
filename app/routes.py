@@ -1,15 +1,68 @@
 # -*- coding: utf-8 -*-
-from flask import render_template, flash, redirect,url_for, request, jsonify
+from functools import wraps
+from flask import render_template, flash, redirect,url_for, request, Response, jsonify
 from models import Contact
 from app import app, db
+from os import environ
+
+# Flask simple Auth Basic
+def check_auth(username, password):
+    """This function is called to check if a username /
+    password combination is valid.
+    """
+    # TODO: rozbudowa np. o bardziej zaawansowany rodzaj autentykacji
+
+    _user = 'user'
+    _pass = 'secret'
+
+    # if os env, set provided _user and _pass
+    if environ.get('PHONEBOOK_USER') is not None:
+        _user = environ.get('PHONEBOOK_USER')
+
+    if environ.get('PHONEBOOK_PASS') is not None:
+        _pass = environ.get('PHONEBOOK_USER')
+
+    return username == _user and password == _pass
+
+def authenticate():
+    """Sends a 401 response that enables basic auth"""
+    return Response(
+    'Could not verify your access level for that URL.\n'
+    'You have to login with proper credentials', 401,
+    {'WWW-Authenticate': 'Basic realm="Login Required"'})
+
+def requires_auth(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        auth = request.authorization
+        # very simple one token auth (for example)
+        _token = '!@#$5678QwErTyU='
+        # if os env, set _token
+        if environ.get('PHONEBOOK_TOKEN') is not None:
+            _token = environ.get('PHONEBOOK_TOKEN')
+
+        try:
+            token = request.headers['X-PhoneBook-Token']
+        except:
+            token = None
+            pass
+
+        if token != _token:
+            # if not check BasicAuth
+            if not auth or not check_auth(auth.username, auth.password):
+                return authenticate()
+        return f(*args, **kwargs)
+    return decorated
 
 @app.route('/')
 @app.route('/index')
+@requires_auth
 def index():
     contacts = Contact.query.order_by(Contact.id).all()
     return render_template('table.html', title='Home', contacts=contacts)
 
 @app.route('/api/v1/contacts', methods=['GET'])
+@requires_auth
 def api_get_all_contact():
     """
     API for contact
@@ -44,6 +97,7 @@ def api_get_all_contact():
     return jsonify(response)
 
 @app.route('/api/v1/contacts/<int:id>', methods=['GET'])
+@requires_auth
 def api_get_contact(id):
     """
     API for contact
@@ -75,6 +129,7 @@ def api_get_contact(id):
     return jsonify(response)
 
 @app.route('/api/v1/contacts', methods=['POST'])
+@requires_auth
 def api_post_contact():
     """
     API for contact
@@ -140,6 +195,7 @@ def api_post_contact():
     return jsonify(response)
 
 @app.route('/api/v1/contacts/<int:id>', methods=['PATCH'])
+@requires_auth
 def api_patch_contact(id):
     """
     API for contact
@@ -173,6 +229,7 @@ def api_patch_contact(id):
     return jsonify(response)
 
 @app.route('/api/v1/contacts/<int:id>', methods=['PUT'])
+@requires_auth
 def api_put_contact(id):
     """
     API for contact
@@ -223,6 +280,7 @@ def api_put_contact(id):
     return jsonify(response)
 
 @app.route('/api/v1/contacts/<int:id>', methods=['DELETE'])
+@requires_auth
 def api_delete_contact(id):
     """
     API for contact
